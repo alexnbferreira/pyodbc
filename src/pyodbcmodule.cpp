@@ -1085,7 +1085,7 @@ static const ConstantDef aConstants[] = {
     MAKECONST(SQL_ATTR_ANSI_APP),
 #ifdef SQL_ATTR_RESET_CONNECTION
     MAKECONST(SQL_ATTR_RESET_CONNECTION),
-#endi
+#endif
 };
 
 
