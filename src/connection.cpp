@@ -82,7 +82,7 @@ static bool Connect(PyObject* pConnectString, HDBC hdbc, bool fAnsi, long timeou
         ret = SQLSetConnectAttr(hdbc, SQL_ATTR_LOGIN_TIMEOUT, (SQLPOINTER)(uintptr_t)timeout, SQL_IS_UINTEGER);
         Py_END_ALLOW_THREADS
         if (!SQL_SUCCEEDED(ret))
-            RaiseErrorFromHandle("SQLSetConnectAttr(SQL_ATTR_LOGIN_TIMEOUT)", hdbc, SQL_NULL_HANDLE);
+            RaiseErrorFromHandle(0, "SQLSetConnectAttr(SQL_ATTR_LOGIN_TIMEOUT)", hdbc, SQL_NULL_HANDLE);
     }
 
     if (!fAnsi)
@@ -109,7 +109,7 @@ static bool Connect(PyObject* pConnectString, HDBC hdbc, bool fAnsi, long timeou
     if (SQL_SUCCEEDED(ret))
         return true;
 
-    RaiseErrorFromHandle("SQLDriverConnect", hdbc, SQL_NULL_HANDLE);
+    RaiseErrorFromHandle(0, "SQLDriverConnect", hdbc, SQL_NULL_HANDLE);
 
     return false;
 }
@@ -195,7 +195,7 @@ else
 checkSuccess:
     if (!SQL_SUCCEEDED(ret))
     {
-        RaiseErrorFromHandle("SQLSetConnectAttr", hdbc, SQL_NULL_HANDLE);
+        RaiseErrorFromHandle(0, "SQLSetConnectAttr", hdbc, SQL_NULL_HANDLE);
         Py_BEGIN_ALLOW_THREADS
         SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
         Py_END_ALLOW_THREADS
@@ -224,7 +224,7 @@ PyObject* Connection_New(PyObject* pConnectString, bool fAutoCommit, bool fAnsi,
     ret = SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc);
     Py_END_ALLOW_THREADS
     if (!SQL_SUCCEEDED(ret))
-        return RaiseErrorFromHandle("SQLAllocHandle", SQL_NULL_HANDLE, SQL_NULL_HANDLE);
+        return RaiseErrorFromHandle(0, "SQLAllocHandle", SQL_NULL_HANDLE, SQL_NULL_HANDLE);
 
     //
     // Attributes that must be set before connecting.
@@ -247,6 +247,10 @@ PyObject* Connection_New(PyObject* pConnectString, bool fAutoCommit, bool fAnsi,
 #endif
             if (!ApplyPreconnAttrs(hdbc, ikey, value))
             {
+                RaiseErrorFromHandle(0, "SQLSetConnectAttr", hdbc, SQL_NULL_HANDLE);
+                Py_BEGIN_ALLOW_THREADS
+                SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
+                Py_END_ALLOW_THREADS
                 return 0;
             }
         }
@@ -355,7 +359,7 @@ PyObject* Connection_New(PyObject* pConnectString, bool fAutoCommit, bool fAnsi,
 
         if (!SQL_SUCCEEDED(ret))
         {
-            RaiseErrorFromHandle("SQLSetConnnectAttr(SQL_ATTR_AUTOCOMMIT)", cnxn->hdbc, SQL_NULL_HANDLE);
+            RaiseErrorFromHandle(cnxn, "SQLSetConnnectAttr(SQL_ATTR_AUTOCOMMIT)", cnxn->hdbc, SQL_NULL_HANDLE);
             Py_DECREF(cnxn);
             return 0;
         }
@@ -369,7 +373,7 @@ PyObject* Connection_New(PyObject* pConnectString, bool fAutoCommit, bool fAnsi,
 
         if (!SQL_SUCCEEDED(ret))
         {
-            RaiseErrorFromHandle("SQLSetConnnectAttr(SQL_ATTR_ACCESS_MODE)", cnxn->hdbc, SQL_NULL_HANDLE);
+            RaiseErrorFromHandle(cnxn, "SQLSetConnnectAttr(SQL_ATTR_ACCESS_MODE)", cnxn->hdbc, SQL_NULL_HANDLE);
             Py_DECREF(cnxn);
             return 0;
         }
@@ -442,7 +446,7 @@ static PyObject* Connection_set_attr(PyObject* self, PyObject* args)
     Py_END_ALLOW_THREADS
 
     if (!SQL_SUCCEEDED(ret))
-        return RaiseErrorFromHandle("SQLSetConnectAttr", cnxn->hdbc, SQL_NULL_HANDLE);
+        return RaiseErrorFromHandle(cnxn, "SQLSetConnectAttr", cnxn->hdbc, SQL_NULL_HANDLE);
     Py_RETURN_NONE;
 }
 
@@ -755,7 +759,7 @@ static PyObject* Connection_getinfo(PyObject* self, PyObject* args)
     Py_END_ALLOW_THREADS
     if (!SQL_SUCCEEDED(ret))
     {
-        RaiseErrorFromHandle("SQLGetInfo", cnxn->hdbc, SQL_NULL_HANDLE);
+        RaiseErrorFromHandle(cnxn, "SQLGetInfo", cnxn->hdbc, SQL_NULL_HANDLE);
         return 0;
     }
 
@@ -808,7 +812,7 @@ PyObject* Connection_endtrans(Connection* cnxn, SQLSMALLINT type)
 
     if (!SQL_SUCCEEDED(ret))
     {
-        RaiseErrorFromHandle("SQLEndTran", hdbc, SQL_NULL_HANDLE);
+        RaiseErrorFromHandle(cnxn, "SQLEndTran", hdbc, SQL_NULL_HANDLE);
         return 0;
     }
 
@@ -900,7 +904,7 @@ static int Connection_setautocommit(PyObject* self, PyObject* value, void* closu
     Py_END_ALLOW_THREADS
     if (!SQL_SUCCEEDED(ret))
     {
-        RaiseErrorFromHandle("SQLSetConnectAttr", cnxn->hdbc, SQL_NULL_HANDLE);
+        RaiseErrorFromHandle(cnxn, "SQLSetConnectAttr", cnxn->hdbc, SQL_NULL_HANDLE);
         return -1;
     }
 
@@ -926,7 +930,7 @@ static PyObject* Connection_getsearchescape(PyObject* self, void* closure)
         ret = SQLGetInfo(cnxn->hdbc, SQL_SEARCH_PATTERN_ESCAPE, &sz, _countof(sz), &cch);
         Py_END_ALLOW_THREADS
         if (!SQL_SUCCEEDED(ret))
-            return RaiseErrorFromHandle("SQLGetInfo", cnxn->hdbc, SQL_NULL_HANDLE);
+            return RaiseErrorFromHandle(cnxn, "SQLGetInfo", cnxn->hdbc, SQL_NULL_HANDLE);
 
         cnxn->searchescape = PyString_FromStringAndSize(sz, (Py_ssize_t)cch);
     }
@@ -1016,7 +1020,7 @@ static int Connection_settimeout(PyObject* self, PyObject* value, void* closure)
     Py_END_ALLOW_THREADS
     if (!SQL_SUCCEEDED(ret))
     {
-        RaiseErrorFromHandle("SQLSetConnectAttr", cnxn->hdbc, SQL_NULL_HANDLE);
+        RaiseErrorFromHandle(cnxn, "SQLSetConnectAttr", cnxn->hdbc, SQL_NULL_HANDLE);
         return -1;
     }
 
@@ -1405,7 +1409,7 @@ static PyObject* Connection_exit(PyObject* self, PyObject* args)
         if (!SQL_SUCCEEDED(ret))
         {
             const char* szFunc = (CompletionType == SQL_COMMIT) ? "SQLEndTran(SQL_COMMIT)" : "SQLEndTran(SQL_ROLLBACK)";
-            return RaiseErrorFromHandle(szFunc, cnxn->hdbc, SQL_NULL_HANDLE);
+            return RaiseErrorFromHandle(cnxn, szFunc, cnxn->hdbc, SQL_NULL_HANDLE);
         }
     }
 
