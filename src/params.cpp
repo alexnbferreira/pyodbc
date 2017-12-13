@@ -157,7 +157,18 @@ static int DetectSQLType(Cursor *cur, PyObject *cell, ParamInfo *pi)
 #endif
     else if (PyLong_Check(cell))
     {
-        pi->ParameterType = SQL_INTEGER;
+        // Try to see if the value is INTEGER or BIGINT
+        long val = PyLong_AsLong(cell);
+        if(!PyErr_Occurred())
+        {
+            pi->ParameterType = (val > 0x7FFFFFFF)? SQL_BIGINT : SQL_INTEGER;
+        }
+        else
+        {
+            // Fallback to default
+            pi->ParameterType = SQL_INTEGER;
+        }
+
         pi->ColumnSize = 12;
     }
     else if (PyFloat_Check(cell))
@@ -693,8 +704,6 @@ static int PyToCType(Cursor *cur, unsigned char **outbuf, PyObject *cell, ParamI
     }
     else if (PyUnicode_Check(cell))
     {
-        if (pi->ValueType != SQL_C_WCHAR)
-            return false;
         const TextEnc& enc = cur->cnxn->unicode_enc;
         Py_ssize_t len = PyUnicode_GET_SIZE(cell);
         //         Same size      Different size
